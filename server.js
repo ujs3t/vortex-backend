@@ -6,10 +6,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// نقطة فحص الحالة ومنع النوم التلقائي
 app.get('/ping', (req, res) => {
     res.status(200).send('Alive');
 });
 
+// استقبال رابط الفيديو واستخراج البيانات والروابط المباشرة
 app.post('/api/info', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'الرابط مطلوب' });
@@ -29,19 +31,23 @@ app.post('/api/info', async (req, res) => {
                 url: url,
                 videoQuality: '720'
             }, {
-                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                timeout: 8000
+                headers: { 
+                    'Accept': 'application/json', 
+                    'Content-Type': 'application/json' 
+                },
+                timeout: 12000 // مهلة الاستجابة 12 ثانية
             });
 
+            // التحقق من نجاح جلب الرابط وإرجاع البيانات الحقيقية للواجهة
             if (response.data && response.data.url) {
                 res.json({
                     title: response.data.filename || "Video_" + Math.floor(Math.random() * 10000),
-                    thumbnail: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=500",
+                    thumbnail: response.data.picker?.preview || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=500",
                     duration: "00:00",
                     url: response.data.url
                 });
                 success = true;
-                break;
+                break; // التوقف فور النجاح وتجاوز باقي المصفوفة
             }
         } catch (error) {
             errors.push(`${endpoint}: ${error.message}`);
@@ -49,7 +55,7 @@ app.post('/api/info', async (req, res) => {
     }
 
     if (!success) {
-        res.status(500).json({ error: 'فشل الفحص عبر جميع المحركات الخادم الخارجية', details: errors });
+        res.status(500).json({ error: 'فشل الفحص عبر جميع المحركات الخارجية', details: errors });
     }
 });
 
@@ -57,35 +63,16 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     
+    // نظام منع النوم الذاتي (Self-Ping Script)
     const SERVER_URL = process.env.RENDER_EXTERNAL_URL;
     if (SERVER_URL) {
         setInterval(async () => {
             try {
                 await axios.get(`${SERVER_URL}/ping`);
+                console.log('Self-ping performed successfully.');
             } catch (e) {
                 console.error('Self-ping error:', e.message);
             }
-        }, 600000);
-    }
-});
-        res.status(500).json({ error: 'فشل الفحص', details: error.message });
-    }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    
-    // كود إزالة النوم الذاتي: يرسل طلب لنفسه كل 10 دقائق للبقاء مستيقظاً أونلاين
-    const SERVER_URL = process.env.RENDER_EXTERNAL_URL;
-    if (SERVER_URL) {
-        setInterval(async () => {
-            try {
-                await axios.get(`${SERVER_URL}/ping`);
-                console.log('Self-ping successful');
-            } catch (e) {
-                console.error('Self-ping failed:', e.message);
-            }
-        }, 600000); 
+        }, 600000); // تكرار الطلب التلقائي كل 10 دقائق
     }
 });
