@@ -7,51 +7,69 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// قائمة أقوى السيرفرات المتاحة والمستقرة
 const COBALT_INSTANCES = [
-    'https://co.wuk.sh',
-    'https://cobalt.owo.si',
+    'https://cobalt.api.timelessnesses.me',
     'https://api.cobalt.ac',
-    'https://api.cobalt.tools'
+    'https://co.wuk.sh',
+    'https://cobalt.owo.si'
 ];
 
 app.get('/', (req, res) => {
-    res.send('Vortex Proxy Active');
+    res.send('Vortex Proxy Active - السيرفر يعمل بنجاح!');
 });
 
 app.post('/api/proxy', async (req, res) => {
     const { url } = req.body;
 
     if (!url) {
-        return res.status(400).json({ error: "Missing 'url' parameter" });
+        return res.status(400).json({ error: "لم يتم إرسال رابط الفيديو" });
     }
 
-    let lastError = "All instances failed";
+    let lastError = "جميع السيرفرات رفضت الطلب";
+    let details = [];
 
+    // السيرفر الوسيط سيحاول المرور عبر السيرفرات واحداً تلو الآخر
     for (const instance of COBALT_INSTANCES) {
         try {
-            const response = await fetch(instance.endsWith('/') ? instance : `${instance}/`, {
+            const targetUrl = instance.endsWith('/') ? instance : `${instance}/`;
+            const origin = new URL(instance).origin;
+            
+            const response = await fetch(targetUrl, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    // هذه الترويسات تخدع سيرفر Cobalt وتجعله يعتقد أن الطلب قادم من متصفح شرعي
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Origin': origin,
+                    'Referer': origin + '/'
                 },
-                body: JSON.stringify({ url: url })
+                body: JSON.stringify({ 
+                    url: url,
+                    videoQuality: '720',
+                    filenameStyle: 'pretty'
+                })
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                return res.status(200).json(data);
+            const data = await response.json().catch(() => null);
+
+            // إذا نجحنا في جلب الرابط، نقوم بإرجاعه فوراً
+            if (response.ok && data) {
+                if (data.url) return res.status(200).json(data);
+                if (data.picker && data.picker.length > 0) return res.status(200).json({ url: data.picker[0].url });
             } else {
-                lastError = await response.text();
+                lastError = data?.error?.code || data?.text || `HTTP ${response.status}`;
+                details.push(`${instance}: ${lastError}`);
             }
         } catch (error) {
-            lastError = error.message;
+            details.push(`${instance}: ${error.message}`);
             continue;
         }
     }
 
-    res.status(400).json({ error: lastError });
+    // في حال فشلت كل المحاولات
+    res.status(400).json({ error: "تم رفض الرابط من المصدر", details });
 });
 
 app.listen(PORT, () => {
