@@ -17,7 +17,6 @@ app.add_middleware(
 class ProxyRequest(BaseModel):
     url: str
 
-# قائمة بأقوى سيرفرات Cobalt المجهزة بشبكات تخطي الحظر
 COBALT_INSTANCES = [
     'https://co.wuk.sh',
     'https://api.cobalt.ac',
@@ -38,14 +37,12 @@ def get_proxy_url(request: ProxyRequest):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
     }
     
-    # خادمك سيقوم بالاتصال بالسيرفرات نيابة عن التطبيق لتفادي CORS والحظر
     for instance in COBALT_INSTANCES:
         base_url = instance.rstrip('/')
         
-        # محاولة التجربة بصيغة v10
         try:
             res = requests.post(
-                f"{base_url}/",
+                f"{baseUrl}/",
                 json={"url": request.url, "videoQuality": "720", "filenameStyle": "pretty"},
                 headers=headers,
                 timeout=7
@@ -59,10 +56,9 @@ def get_proxy_url(request: ProxyRequest):
         except Exception:
             continue
 
-        # محاولة التجربة بصيغة v9 الافتراضية
         try:
             res = requests.post(
-                f"{base_url}/api/json",
+                f"{baseUrl}/api/json",
                 json={"url": request.url, "vQuality": "720", "filenamePattern": "pretty"},
                 headers=headers,
                 timeout=7
@@ -74,7 +70,6 @@ def get_proxy_url(request: ProxyRequest):
         except Exception:
             continue
 
-    # في حال فرضت المنصة حظراً شاملاً على الفيديو من كل الشبكات
     return JSONResponse(
         status_code=400, 
         content={"error": "عذراً، هذا الفيديو محمي بشكل مشدد حالياً من يوتيوب. جرب فيديو آخر أو منصة أخرى."}
