@@ -42,7 +42,7 @@ def get_proxy_url(request: ProxyRequest):
         
         try:
             res = requests.post(
-                f"{baseUrl}/",
+                f"{base_url}/",
                 json={"url": request.url, "videoQuality": "720", "filenameStyle": "pretty"},
                 headers=headers,
                 timeout=7
@@ -58,7 +58,7 @@ def get_proxy_url(request: ProxyRequest):
 
         try:
             res = requests.post(
-                f"{baseUrl}/api/json",
+                f"{base_url}/api/json",
                 json={"url": request.url, "vQuality": "720", "filenamePattern": "pretty"},
                 headers=headers,
                 timeout=7
